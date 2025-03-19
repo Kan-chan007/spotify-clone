@@ -1,0 +1,108 @@
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.*;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.Scanner;
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+public class SpotifyApp extends JFrame implements ActionListener {
+
+    private JButton playButton, pauseButton, shuffleButton;
+    private JLabel songLabel, coverLabel;
+    private String[] songList, imageUrls;
+    private int currentSongIndex = 0;
+
+    public SpotifyApp() {
+        setTitle("Music App");
+        setSize(400, 500);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLayout(new FlowLayout());
+
+        songLabel = new JLabel("Loading songs...");
+        coverLabel = new JLabel();
+        add(songLabel);
+        add(coverLabel);
+
+        playButton = new JButton("Play");
+        pauseButton = new JButton("Pause");
+        shuffleButton = new JButton("Shuffle");
+
+        playButton.addActionListener(this);
+        pauseButton.addActionListener(this);
+        shuffleButton.addActionListener(this);
+
+        add(playButton);
+        add(pauseButton);
+        add(shuffleButton);
+
+        fetchSongs();
+    }
+
+    private void fetchSongs() {
+        try {
+            String searchTerm = "pop"; // Example search term
+            URL url = new URL("https://itunes.apple.com/search?term=" + searchTerm + "&limit=10");
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+
+            int responseCode = conn.getResponseCode();
+            if (responseCode == 200) {
+                Scanner scanner = new Scanner(url.openStream());
+                StringBuilder response = new StringBuilder();
+                while (scanner.hasNext()) {
+                    response.append(scanner.nextLine());
+                }
+                scanner.close();
+
+                JSONObject jsonResponse = new JSONObject(response.toString());
+                JSONArray songsArray = jsonResponse.getJSONArray("results");
+                songList = new String[songsArray.length()];
+                imageUrls = new String[songsArray.length()];
+                
+                for (int i = 0; i < songsArray.length(); i++) {
+                    songList[i] = songsArray.getJSONObject(i).getString("trackName");
+                    imageUrls[i] = songsArray.getJSONObject(i).getString("artworkUrl100");
+                }
+                updateUI();
+            } else {
+                songLabel.setText("Failed to fetch songs.");
+            }
+        } catch (Exception e) {
+            songLabel.setText("Error fetching songs.");
+            e.printStackTrace();
+        }
+    }
+
+    private void updateUI() {
+        try {
+            songLabel.setText("Now Playing: " + songList[currentSongIndex]);
+            URL imageUrl = new URL(imageUrls[currentSongIndex]);
+            BufferedImage image = ImageIO.read(imageUrl);
+            coverLabel.setIcon(new ImageIcon(image));
+        } catch (Exception e) {
+            coverLabel.setText("Failed to load cover image.");
+        }
+    }
+
+    @Override
+    public void actionPerformed(ActionEvent e) {
+        if (e.getSource() == playButton) {
+            songLabel.setText("Playing: " + songList[currentSongIndex]);
+        } else if (e.getSource() == pauseButton) {
+            songLabel.setText("Paused: " + songList[currentSongIndex]);
+        } else if (e.getSource() == shuffleButton) {
+            currentSongIndex = (int) (Math.random() * songList.length);
+            updateUI();
+        }
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> {
+            new SpotifyApp().setVisible(true);
+        });
+    }
+}
